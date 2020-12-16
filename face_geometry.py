@@ -106,7 +106,16 @@ def get_metric_landmarks(screen_landmarks, pcf):
     metric_landmarks = unproject_xy(pcf, metric_landmarks)
     metric_landmarks = change_handedness(metric_landmarks)
 
-    return metric_landmarks
+    pose_transform_mat = solve_weighted_orthogonal_problem(canonical_metric_landmarks, metric_landmarks, landmark_weights)
+    cpp_compare("pose_transform_mat", pose_transform_mat)
+
+    inv_pose_transform_mat = np.linalg.inv(pose_transform_mat)
+    inv_pose_rotation = inv_pose_transform_mat[:3, :3]
+    inv_pose_translation = inv_pose_transform_mat[:3, 3]
+
+    metric_landmarks = inv_pose_rotation @ metric_landmarks + inv_pose_translation[:, None]
+
+    return metric_landmarks, pose_transform_mat
         
 def project_xy(landmarks, pcf):
     x_scale = pcf.right - pcf.left
@@ -114,7 +123,7 @@ def project_xy(landmarks, pcf):
     x_translation = pcf.left
     y_translation = pcf.bottom
     
-    # landmarks[1,:] = 1.0 - landmarks[1,:]
+    landmarks[1,:] = 1.0 - landmarks[1,:]
     
     landmarks = landmarks * np.array([[x_scale,y_scale,x_scale]]).T
     landmarks = landmarks + np.array([[x_translation,y_translation,0]]).T

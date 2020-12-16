@@ -50,8 +50,10 @@ void save_matrix(string s, MatrixXf M){
 
     if(cols == 468){
         Matrix<float, 3, 468>::Map(raw_data.data()) = M;
-    }else{
+    }else if(rows == 3 && cols == 3){
         Matrix<float, 3, 3>::Map(raw_data.data()) = M;
+    }else if(rows == 4 && cols == 4){
+        Matrix<float, 4, 4>::Map(raw_data.data()) = M;
     }
     
     cnpy::npy_save(s, &raw_data[0], {rows, cols}, "w");
@@ -62,7 +64,7 @@ void log_matrix(string s, MatrixXf M, int n){
     cout << "rows/cols: " << M.rows() << "/" << M.cols() << endl;
     cout << M.leftCols(n) << endl << endl;
 
-    if( (M.rows() == 3 && M.cols() == 468) || (M.rows() == 3 && M.cols() == 3)){
+    if( (M.rows() == 3 && M.cols() == 468) || (M.rows() == 3 && M.cols() == 3) || (M.rows() == 4 && M.cols() == 4)){
         save_matrix(s + "_cpp.npy", M);
     }
 }
@@ -87,12 +89,9 @@ void ProjectXY(float pcf_right,
     float x_translation = pcf_left;
     float y_translation = pcf_bottom;
 
-    // if (origin_point_location_ == OriginPointLocation::TOP_LEFT_CORNER) {
-    //   landmarks.row(1) = 1.f - landmarks.row(1).array();
-    // }
+    landmarks.row(1) = 1.f - landmarks.row(1).array();
 
-    landmarks =
-        landmarks.array().colwise() * Array3f(x_scale, y_scale, x_scale);
+    landmarks = landmarks.array().colwise() * Array3f(x_scale, y_scale, x_scale);
     landmarks.colwise() += Vector3f(x_translation, y_translation, 0.f);
   }
 
@@ -381,6 +380,23 @@ int main(){
 
     // At this point, screen landmarks are converted into metric landmarks.
     Matrix3Xf& metric_landmarks = screen_landmarks;
+
+    Matrix4f pose_transform_mat;
+    SolveWeightedOrthogonalProblem(canonical_metric_landmarks, metric_landmarks, landmark_weights, pose_transform_mat);
+
+    log_matrix("pose_transform_mat", pose_transform_mat, 3);
+
+    Matrix4f inv_pose_transform_mat = pose_transform_mat.inverse();
+    log_matrix("inv_pose_transform_mat", inv_pose_transform_mat, 3);
+
+    auto inv_pose_rotation = inv_pose_transform_mat.leftCols(3).topRows(3);
+    log_matrix("inv_pose_rotation", inv_pose_rotation, 3);
+
+    auto inv_pose_translation = inv_pose_transform_mat.col(3).topRows(3);
+    log_vector("inv_pose_translation", inv_pose_translation, 3);
+
+    metric_landmarks = (inv_pose_rotation * metric_landmarks).colwise() + inv_pose_translation;
+
     log_matrix("metric_landmarks", metric_landmarks, 3);
 
     return 0;
