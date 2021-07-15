@@ -1,3 +1,6 @@
+# Deprecated
+See https://github.com/Rassibassi/mediapipeDemos for many more demos
+
 # Install guide and run
 I use anaconda to run my code, so here is an example how to get it running with anaconda.
 
